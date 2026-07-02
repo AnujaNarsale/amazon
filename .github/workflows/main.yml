@@ -27,24 +27,16 @@ jobs:
         run: mvn -B clean test
         continue-on-error: true
 
-      - name: Find test-output anywhere (debug)
-        if: always()
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "----"
-          echo "Searching entire workspace for test-output folder:"
-          find / -type d -name "test-output" 2>/dev/null
-          echo "----"
-          echo "Searching for testng-results.xml anywhere:"
-          find / -name "testng-results.xml" 2>/dev/null
-          echo "----"
-          echo "Listing repo root:"
-          ls -la
-
       - name: Upload TestNG Report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: testng-report
-          path: test-output/
+          path: target/surefire-reports/
+
+      - name: Upload TestNG HTML Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: testng-html-report
+          path: target/site/
