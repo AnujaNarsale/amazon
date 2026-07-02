@@ -3,6 +3,7 @@ package tests;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.By;
 import org.openqa.selenium.OutputType;
+import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -51,18 +52,42 @@ public class AmazonSearchTest {
                 ExpectedConditions.elementToBeClickable(By.linkText("Phones")));
         phonesCategory.click();
 
-        // Wait for product list to load
+        // Wait for product list to be present AND stable
         wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.cssSelector(".card-title a")));
 
-        List<WebElement> products = driver.findElements(By.cssSelector(".card-title a"));
+        // Small buffer to let any lazy re-render settle
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
-        Assert.assertTrue(products.size() > 0, "No phone products found");
+        String firstProductName = null;
+        int attempts = 0;
+        int maxAttempts = 3;
 
-        String firstProductName = products.get(0).getText();
-        System.out.println("Selecting first product: " + firstProductName);
+        while (attempts < maxAttempts) {
+            try {
+                List<WebElement> products = driver.findElements(By.cssSelector(".card-title a"));
+                Assert.assertTrue(products.size() > 0, "No phone products found");
 
-        products.get(0).click();
+                firstProductName = products.get(0).getText();
+                System.out.println("Selecting first product: " + firstProductName);
+
+                // Re-locate right before click to avoid staleness
+                WebElement firstProductFresh = driver.findElements(By.cssSelector(".card-title a")).get(0);
+                wait.until(ExpectedConditions.elementToBeClickable(firstProductFresh));
+                firstProductFresh.click();
+                break; // success, exit retry loop
+            } catch (StaleElementReferenceException e) {
+                attempts++;
+                System.out.println("Stale element, retrying... attempt " + attempts);
+                if (attempts == maxAttempts) {
+                    throw e;
+                }
+            }
+        }
 
         // Verify product page loaded
         WebElement productNameHeader = wait.until(
